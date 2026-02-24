@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Profil Gue</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background: #3498db;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        main {
+            max-width: 800px;
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        h1, h2 {
+            margin-top: 0;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        footer {
+            text-align: center;
+            padding: 10px;
+            color: #777;
+            font-size: 14px;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Nama Gue</h1>
+    <p>Ini adalah website sederhana tentang gue</p>
+</header>
+
+<main>
+    <section class="section" id="about">
+        <h2>Tentang Gue</h2>
+        <p>Halo! Nama gue [ISI NAMA], gue suka ngoding, nongkrong, dan eksplor hal baru.</p>
+    </section>
+
+    <section class="section" id="skills">
+        <h2>Skill</h2>
+        <ul>
+            <li>HTML & CSS dasar</li>
+            <li>JavaScript (sedikit-sedikit)</li>
+            <li>Desain simple</li>
+        </ul>
+    </section>
+
+    <section class="section" id="contact">
+        <h2>Kontak</h2>
+        <p>Email: <a href="mailto:emailkamu@example.com">emailkamu@example.com</a></p>
+        <p>Instagram: <a href="https://instagram.com/usernamekamu" target="_blank">@usernamekamu</a></p>
+    </section>
+</main>
+
+<footer>
+    &copy; <span id="year"></span> Nama Gue. All rights reserved.
+</footer>
+
+<script>
+    // Biar tahun di footer otomatis
+    document.getElementById("year").textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
