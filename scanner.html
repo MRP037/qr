@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Scanner QR/Barcode Warga</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Library untuk scan QR/Barcode via kamera -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            margin: 0;
+        }
+        header {
+            background: #27ae60;
+            color: #fff;
+            padding: 15px;
+            text-align: center;
+        }
+        main {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        #reader {
+            width: 100%;
+            margin-top: 10px;
+        }
+        #result, #status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            word-wrap: break-word;
+        }
+        #result {
+            background: #ecf0f1;
+        }
+        #status {
+            font-size: 14px;
+            white-space: pre-line;
+        }
+        .success {
+            background: #d4efdf;
+            color: #1e8449;
+        }
+        .error {
+            background: #fadbd8;
+            color: #c0392b;
+        }
+        .warning {
+            background: #fcf3cf;
+            color: #b7950b;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background: #3498db;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .small {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+        }
+        .field {
+            margin: 10px 0;
+        }
+        .field label {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        .field input {
+            width: 100%;
+            padding: 6px 8px;
+            box-sizing: border-box;
+        }
+        .mode-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .mode-buttons button {
+            flex: 1;
+        }
+        .active-mode {
+            border: 2px solid #1e8449;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Scanner QR/Barcode Warga</h1>
+    <p>Scan kode, update Sheet1 & catat ke log</p>
+</header>
+
+<main>
+    <div class="field">
+        <label for="panitia">Nama Panitia (opsional, ikut tersimpan di log):</label>
+        <input type="text" id="panitia" placeholder="Isi nama panitia di sini">
+    </div>
+
+    <div class="field">
+        <label>Mode Scan:</label>
+        <div class="mode-buttons">
+            <button id="mode-camera" class="active-mode">Mode Kamera</button>
+            <button id="mode-usb">Mode USB / Manual</button>
+        </div>
+    </div>
+
+    <!-- Input untuk USB scanner / manual -->
+    <div class="field" id="usb-area" style="display:none;">
+        <label for="barcode-input">Input Barcode (fokus di sini lalu scan pakai USB scanner / ketik manual, tekan Enter):</label>
+        <input type="text" id="barcode-input" placeholder="Fokus di sini lalu scan" autocomplete="off">
+    </div>
+
+    <!-- Area kamera -->
+    <div id="camera-area">
+        <div id="reader"></div>
+        <button id="reset-btn" style="display:none;">Scan Lagi (Kamera)</button>
+    </div>
+
+    <div id="result">
+        <strong>Hasil Scan (Code / Barcode):</strong>
+        <div id="result-text">Belum ada hasil.</div>
+    </div>
+
+    <div id="status"></div>
+
+    <p class="small">
+        Struktur Google Sheet:<br>
+        Sheet1 (master): A=Code, B=Nama, C=RT, D=Status, E=Waktu<br>
+        log (riwayat): A=Waktu, B=Barcode, C=Nama, D=RT, E=Hasil, F=Panitia<br><br>
+        Catatan:<br>
+        - QR/Barcode harus sama dengan kolom <b>Code</b> di Sheet1.<br>
+        - Web App Script harus di-set "Anyone / Anyone with the link".<br>
+        - Bisa scan pakai kamera (mode kamera) atau USB scanner (mode USB/manual).
+    </p>
+</main>
+
+<script>
+    const resultText = document.getElementById("result-text");
+    const statusBox = document.getElementById("status");
+    const resetBtn = document.getElementById("reset-btn");
+    const panitiaInput = document.getElementById("panitia");
+    const barcodeInput = document.getElementById("barcode-input");
+    const usbArea = document.getElementById("usb-area");
+    const cameraArea = document.getElementById("camera-area");
+    const modeCameraBtn = document.getElementById("mode-camera");
+    const modeUsbBtn = document.getElementById("mode-usb");
+
+    let html5QrCode;
+    let isScanning = false;
+    let currentMode = "camera"; // "camera" atau "usb"
+
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRRppEsUy1khzLcTrtPL9ocCQNOyoq_zl1ckl1sTfHBS3V2ZVL2gNrEs-OJuvu-lpk/exec"; // ← GANTI dengan URL Web App Script kamu
+
+    function setStatus(message, type) {
+        statusBox.textContent = message;
+        statusBox.className = "";
+        if (type) statusBox.classList.add(type);
+    }
+
+    async function sendToSheet(codeValue) {
+        if (!codeValue) return;
+        setStatus("Mengecek & mencatat ke Google Sheet...", "");
+
+        try {
+            const res = await fetch(SCRIPT_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    qrText: codeValue,
+                    panitia: panitiaInput.value || ""
+                })
+            });
+
+            const data = await res.json();
+            console.log(data);
+
+            if (data.status === "success") {
+                const d = data.data;
+                setStatus(
+`BERHASIL: Baru dicatat sebagai sudah diambil.
+
+Waktu  : ${d.waktu}
+Code   : ${d.code}
+Nama   : ${d.nama}
+RT     : ${d.rt}
+Status : ${d.status}
+Panitia: ${d.panitia || "-"}`, "success");
+            } else if (data.status === "already_taken") {
+                const d = data.data;
+                setStatus(
+`PERHATIAN: Kode ini sudah pernah diambil sebelumnya.
+
+Waktu (master): ${d.waktu}
+Code          : ${d.code}
+Nama          : ${d.nama}
+RT            : ${d.rt}
+Status        : ${d.status}
+Panitia       : ${d.panitia || "-"}
+
+Catatan: scan ini tetap tercatat di sheet 'log'.`, "warning");
+            } else if (data.status === "not_found") {
+                setStatus("Kode tidak ditemukan di Sheet1.\nCode: " + (data.code || codeValue), "error");
+            } else {
+                setStatus("Error: " + (data.message || "Tidak diketahui"), "error");
+            }
+        } catch (err) {
+            console.error(err);
+            setStatus("Gagal komunikasi dengan server: " + err, "error");
+        }
+    }
+
+    // ====== MODE KAMERA ======
+    function startCameraScanner() {
+        const qrCodeRegionId = "reader";
+        if (html5QrCode) {
+            // kalau sudah ada instance lama, clear dulu
+            html5QrCode.clear().catch(() => {});
+        }
+        html5QrCode = new Html5Qrcode(qrCodeRegionId);
+
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        html5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            (decodedText) => {
+                if (!isScanning) return;
+                isScanning = false;
+
+                const val = decodedText.trim();
+                resultText.textContent = val;
+                resetBtn.style.display = "inline-block";
+
+                html5QrCode.stop().then(() => {
+                    sendToSheet(val);
+                }).catch(err => {
+                    console.error("Gagal stop scanner:", err);
+                    setStatus("Error stop scanner: " + err, "error");
+                });
+            },
+            () => {
+                // error per frame, diabaikan
+            }
+        ).then(() => {
+            isScanning = true;
+        }).catch(err => {
+            console.error("Gagal start scan:", err);
+            setStatus("Gagal mengakses kamera: " + err, "error");
+        });
+    }
+
+    resetBtn.addEventListener("click", () => {
+        resultText.textContent = "Belum ada hasil.";
+        statusBox.textContent = "";
+        statusBox.className = "";
+        resetBtn.style.display = "none";
+        if (currentMode === "camera") {
+            startCameraScanner();
+        }
+    });
+
+    // ====== MODE USB / MANUAL ======
+    barcodeInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            const val = barcodeInput.value.trim();
+            if (!val) return;
+            resultText.textContent = val;
+            sendToSheet(val);
+            // siap untuk scan berikutnya
+            setTimeout(() => barcodeInput.select(), 100);
+        }
+    });
+
+    // ====== GANTI MODE ======
+    modeCameraBtn.addEventListener("click", () => {
+        currentMode = "camera";
+        modeCameraBtn.classList.add("active-mode");
+        modeUsbBtn.classList.remove("active-mode");
+        cameraArea.style.display = "block";
+        usbArea.style.display = "none";
+        resultText.textContent = "Belum ada hasil.";
+        statusBox.textContent = "";
+        statusBox.className = "";
+        resetBtn.style.display = "none";
+        startCameraScanner();
+    });
+
+    modeUsbBtn.addEventListener("click", () => {
+        currentMode = "usb";
+        modeUsbBtn.classList.add("active-mode");
+        modeCameraBtn.classList.remove("active-mode");
+        usbArea.style.display = "block";
+        cameraArea.style.display = "none";
+        resultText.textContent = "Belum ada hasil.";
+        statusBox.textContent = "";
+        statusBox.className = "";
+        resetBtn.style.display = "none";
+
+        // stop kamera kalau lagi jalan
+        if (html5QrCode) {
+            html5QrCode.stop().catch(() => {});
+        }
+
+        // fokus ke input untuk USB scanner
+        setTimeout(() => barcodeInput.focus(), 300);
+    });
+
+    // mulai default di mode kamera
+    startCameraScanner();
+</script>
+</body>
+</html>
