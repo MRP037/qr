@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Scanner Panitia</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        :root { --primary: #2563eb; --success: #22c55e; --danger: #ef4444; --warning: #f59e0b; }
+        body { font-family: -apple-system, sans-serif; background: #f8fafc; margin: 0; display: flex; justify-content: center; padding: 20px; }
+        .card { background: white; width: 100%; max-width: 450px; border-radius: 16px; shadow: 0 10px 15px rgba(0,0,0,0.1); padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        h2 { color: #1e293b; margin-top: 0; text-align: center; }
+        #reader { width: 100%; border-radius: 12px; overflow: hidden; background: #000; }
+        .input-group { margin-bottom: 16px; }
+        input { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; background: var(--primary); color: white; border: none; padding: 14px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+        #status { margin-top: 20px; padding: 16px; border-radius: 8px; font-weight: 600; display: none; text-align: center; }
+        .success { background: #dcfce7; color: #166534; }
+        .error { background: #fee2e2; color: #991b1b; }
+        .warning { background: #fef3c7; color: #92400e; }
+        #usbInput { opacity: 0.6; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Scanner Panitia</h2>
+    
+    <div id="setup">
+        <div class="input-group">
+            <input type="text" id="panitiaName" placeholder="Masukkan Nama Anda...">
+        </div>
+        <button onclick="startApp()">Masuk Tugas</button>
+    </div>
+
+    <div id="scanner" style="display:none">
+        <p style="text-align:center">Petugas: <b id="namaP"></b></p>
+        <div id="reader"></div>
+        <input type="text" id="usbInput" placeholder="Fokus di sini untuk USB Scanner">
+        <div id="status"></div>
+    </div>
+</div>
+
+<script>
+    // MASUKKAN URL WEB APP GOOGLE SCRIPT ANDA DI SINI
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzfKyxxSszsXlVj0Hdbiv8VYzG78crcq7XaPM25_GxHv4BEsq2hQT4vFde4cQ24QjvH_w/exec"; 
+
+    let panitia = "";
+    let html5QrCode;
+    let isProcessing = false;
+
+    function startApp() {
+        panitia = document.getElementById('panitiaName').value;
+        if (!panitia) return alert("Nama panitia wajib diisi!");
+        document.getElementById('setup').style.display = 'none';
+        document.getElementById('scanner').style.display = 'block';
+        document.getElementById('namaP').innerText = panitia;
+        initScanner();
+    }
+
+    function initScanner() {
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess)
+        .catch(err => alert("Izin kamera ditolak atau tidak ditemukan."));
+    }
+
+    document.getElementById('usbInput').addEventListener('keypress', e => {
+        if (e.key === 'Enter') { onScanSuccess(e.target.value); e.target.value = ''; }
+    });
+
+    function onScanSuccess(decodedText) {
+        if (isProcessing) return;
+        isProcessing = true;
+        updateStatus("Memverifikasi...", "warning");
+
+        fetch(WEB_APP_URL, {
+            method: "POST",
+            mode: "no-cors", // Penting untuk Google Apps Script
+            body: JSON.stringify({ qrContent: decodedText, panitiaName: panitia })
+        }).then(() => {
+            // Karena no-cors tidak bisa baca return JSON, 
+            // kita asumsikan terkirim. Untuk hasil akurat, sebaiknya gunakan doPost biasa.
+            updateStatus("Data terkirim! Cek di Sheets.", "success");
+            setTimeout(() => { isProcessing = false; }, 3000);
+        }).catch(err => {
+            updateStatus("Gagal koneksi ke server", "error");
+            isProcessing = false;
+        });
+    }
+
+    function updateStatus(msg, type) {
+        const s = document.getElementById('status');
+        s.innerText = msg; s.className = type; s.style.display = 'block';
+    }
+</script>
+</body>
+</html>
