@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Qurban</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root{
+    --green:#16a34a;
+    --red:#dc2626;
+    --bg:#f3f4f6;
+}
+
+*{ box-sizing:border-box; }
+
+body{
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background:var(--bg);
+    margin:0;
+    padding:20px;
+}
+
+h2{
+    margin-bottom:15px;
+}
+
+.dashboard{
+    max-width:1200px;
+    margin:auto;
+}
+
+/* ===== CARD ===== */
+.cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:15px;
+    margin-bottom:20px;
+}
+
+.card{
+    background:white;
+    padding:20px;
+    border-radius:14px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.08);
+}
+
+.card h3{
+    margin:0;
+    font-size:14px;
+    color:#555;
+}
+
+.card p{
+    margin:8px 0 0;
+    font-size:26px;
+    font-weight:bold;
+}
+
+/* ===== CHART ===== */
+.chart-box{
+    background:white;
+    padding:20px;
+    border-radius:14px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.08);
+    margin-bottom:20px;
+}
+
+/* ===== TABLE ===== */
+.table-wrapper{
+    overflow-x:auto;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    background:white;
+    border-radius:14px;
+    overflow:hidden;
+}
+
+th,td{
+    padding:12px;
+    text-align:left;
+    border-bottom:1px solid #eee;
+    font-size:14px;
+}
+
+th{
+    background:var(--green);
+    color:white;
+    position:sticky;
+    top:0;
+}
+
+.badge{
+    padding:4px 10px;
+    border-radius:20px;
+    font-size:12px;
+    color:white;
+}
+
+.sudah{ background:var(--green); }
+.belum{ background:var(--red); }
+
+@media(max-width:600px){
+    h2{ font-size:18px; }
+}
+</style>
+</head>
+
+<body>
+<div class="dashboard">
+
+<h2>📊 Dashboard Pembagian Daging Qurban</h2>
+
+<div class="cards">
+    <div class="card">
+        <h3>Total Penerima</h3>
+        <p id="total">0</p>
+    </div>
+    <div class="card">
+        <h3>Sudah Ambil</h3>
+        <p id="ambil">0</p>
+    </div>
+    <div class="card">
+        <h3>Belum Ambil</h3>
+        <p id="belum">0</p>
+    </div>
+</div>
+
+<div class="chart-box">
+    <canvas id="chart"></canvas>
+</div>
+
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+    <th>Nama</th>
+    <th>RT</th>
+    <th>Status</th>
+    <th>Waktu</th>
+</tr>
+</thead>
+<tbody id="dataTable"></tbody>
+</table>
+</div>
+
+</div>
+
+<script>
+const webAppUrl = "https://script.google.com/macros/s/AKfycby3t2igls5kp2W4M63faqGeC_m_vG5mhwgoek7fkDfDvmorJbOYUznwFO6EcFllxxrK/exec";
+
+fetch(webAppUrl)
+.then(r => r.json())
+.then(data => {
+
+    let total = data.length - 1;
+    let sudah = 0;
+    let html = "";
+
+    for(let i=1;i<data.length;i++){
+        const status = data[i][3] || "Belum Ambil";
+        if(status === "Sudah Ambil") sudah++;
+
+        html += `
+        <tr>
+            <td>${data[i][1]}</td>
+            <td>${data[i][2]}</td>
+            <td>
+                <span class="badge ${status==="Sudah Ambil"?"sudah":"belum"}">
+                    ${status}
+                </span>
+            </td>
+            <td>${data[i][4] || "-"}</td>
+        </tr>`;
+    }
+
+    document.getElementById("total").innerText = total;
+    document.getElementById("ambil").innerText = sudah;
+    document.getElementById("belum").innerText = total - sudah;
+    document.getElementById("dataTable").innerHTML = html;
+
+    new Chart(document.getElementById("chart"),{
+        type:'doughnut',
+        data:{
+            labels:['Sudah Ambil','Belum Ambil'],
+            datasets:[{
+                data:[sudah,total-sudah],
+                backgroundColor:['#16a34a','#dc2626']
+            }]
+        },
+        options:{
+            responsive:true,
+            plugins:{
+                legend:{ position:'bottom' }
+            }
+        }
+    });
+
+});
+</script>
+
+</body>
+</html>
