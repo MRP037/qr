@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keuangan RT - GitHub Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .page { display: none; }
+        .page.active { display: block; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 2s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- SETUP API URL (PENTING!) -->
+    <script>
+        /**
+         * PENTING:
+         * 1. Pastikan GAS di-deploy sebagai "Web App".
+         * 2. Execute as: "Me".
+         * 3. Who has access: "Anyone".
+         * 4. Gunakan URL dari deployment terbaru.
+         */
+        const API_URL = "https://script.google.com/macros/s/XXXXX_ID_SCRIPT_ANDA_XXXXX/exec";
+        let APP_PASS = "";
+    </script>
+
+    <!-- UI Login -->
+    <div id="loginPage" class="page active flex items-center justify-center min-h-screen">
+        <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200 text-center">
+            <h1 class="text-2xl font-bold mb-6 text-blue-700">Keuangan RT (Remote)</h1>
+            <input type="password" id="passInput" placeholder="Masukkan Password Aplikasi" class="w-full px-4 py-2 border rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none">
+            <button onclick="handleLogin()" id="loginBtn" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition">Masuk</button>
+            <p id="loginErr" class="text-red-500 mt-2 text-sm hidden"></p>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="mainApp" class="page min-h-screen">
+        <nav class="bg-blue-700 text-white shadow-md p-4 flex justify-between items-center">
+            <span class="font-bold text-lg">Dashboard RT Digital</span>
+            <button onclick="location.reload()" class="bg-blue-800 px-3 py-1 rounded text-xs hover:bg-red-600 transition">Logout</button>
+        </nav>
+        
+        <div class="max-w-6xl mx-auto p-4">
+            <!-- Navigasi Menu -->
+            <div class="flex space-x-2 mb-6 overflow-x-auto pb-2">
+                <button onclick="showPage('dashboard')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition">Dashboard</button>
+                <button onclick="showPage('warga')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition">Data Warga</button>
+            </div>
+            
+            <!-- Dashboard Content -->
+            <div id="page-dashboard" class="subpage active">
+                 <h2 class="text-xl font-bold mb-4 text-gray-800">Ringkasan Kas</h2>
+                 <div id="stat-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                     <div class="bg-green-50 p-6 rounded-xl border border-green-200 shadow-sm">
+                        <p class="text-green-600 text-xs font-bold uppercase">Total Masuk</p>
+                        <p class="text-2xl font-bold text-green-800">Rp <span id="stat-masuk">0</span></p>
+                     </div>
+                     <div class="bg-red-50 p-6 rounded-xl border border-red-200 shadow-sm">
+                        <p class="text-red-600 text-xs font-bold uppercase">Total Keluar</p>
+                        <p class="text-2xl font-bold text-red-800">Rp <span id="stat-keluar">0</span></p>
+                     </div>
+                     <div class="bg-blue-50 p-6 rounded-xl border border-blue-200 shadow-sm">
+                        <p class="text-blue-600 text-xs font-bold uppercase">Saldo Saat Ini</p>
+                        <p class="text-2xl font-bold text-blue-800">Rp <span id="stat-saldo">0</span></p>
+                     </div>
+                 </div>
+            </div>
+
+            <!-- Table Warga -->
+            <div id="page-warga" class="subpage hidden">
+                <h2 class="text-xl font-bold mb-4 text-gray-800">Daftar Warga</h2>
+                <div class="bg-white rounded-xl shadow border overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b">
+                                <th class="p-4 text-sm font-bold text-gray-600 uppercase">Kode</th>
+                                <th class="p-4 text-sm font-bold text-gray-600 uppercase">Nama Warga</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-warga-body" class="divide-y divide-gray-100">
+                            <!-- Data akan dimuat di sini -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loader" class="fixed inset-0 bg-white bg-opacity-70 hidden flex flex-col items-center justify-center z-50">
+        <div class="loader mb-2"></div>
+        <p class="text-blue-600 font-medium animate-pulse">Menghubungkan ke Server...</p>
+    </div>
+
+    <script>
+        // Fungsi utama untuk request data ke GAS
+        async function requestData(action, data = {}) {
+            showLoading(true);
+            const loginErr = document.getElementById('loginErr');
+            loginErr.classList.add('hidden');
+
+            try {
+                const payload = { 
+                    action: action, 
+                    password: APP_PASS, 
+                    data: data 
+                };
+
+                // Menggunakan fetch dengan URLSearchParams atau JSON String 
+                // Google Apps Script doPost menerima payload di e.postData.contents
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    mode: "cors", // Mengaktifkan CORS secara eksplisit
+                    headers: {
+                        "Content-Type": "text/plain;charset=utf-8", 
+                        // Menggunakan text/plain seringkali menghindari pre-flight CORS yang ketat di GAS
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error("Gagal terhubung ke server");
+
+                const result = await response.json();
+                showLoading(false);
+
+                if (!result.success) {
+                    loginErr.innerText = result.message || "Terjadi kesalahan";
+                    loginErr.classList.remove('hidden');
+                    return null;
+                }
+
+                return result;
+            } catch (error) {
+                console.error("API Error:", error);
+                showLoading(false);
+                alert("Kesalahan Jaringan: Pastikan URL API sudah benar dan akses dideploy untuk 'Anyone'.");
+                return null;
+            }
+        }
+
+        async function handleLogin() {
+            const passInput = document.getElementById('passInput');
+            APP_PASS = passInput.value;
+            
+            if (!APP_PASS) {
+                alert("Masukkan password!");
+                return;
+            }
+
+            // Mencoba mengambil ringkasan sebagai verifikasi login
+            const res = await requestData('getSummary');
+            
+            if (res && res.success) {
+                document.getElementById('loginPage').classList.remove('active');
+                document.getElementById('mainApp').classList.add('active');
+                updateUI(res.data);
+                loadWarga();
+            }
+        }
+
+        async function loadWarga() {
+            const res = await requestData('getWarga');
+            if (res && res.success) {
+                const body = document.getElementById('table-warga-body');
+                if (res.data.length === 0) {
+                    body.innerHTML = '<tr><td colspan="2" class="p-4 text-center text-gray-400 italic">Belum ada data warga</td></tr>';
+                    return;
+                }
+                body.innerHTML = res.data.map(w => `
+                    <tr class="hover:bg-blue-50 transition">
+                        <td class="p-4 text-sm text-gray-600 font-mono font-bold">${w.Kode || '-'}</td>
+                        <td class="p-4 text-sm text-gray-800 font-medium">${w.Nama_Warga || '-'}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function updateUI(stats) {
+            document.getElementById('stat-masuk').innerText = stats.masuk.toLocaleString('id-ID');
+            document.getElementById('stat-keluar').innerText = stats.keluar.toLocaleString('id-ID');
+            document.getElementById('stat-saldo').innerText = stats.saldo.toLocaleString('id-ID');
+        }
+
+        function showPage(id) {
+            document.querySelectorAll('.subpage').forEach(p => p.classList.add('hidden'));
+            document.getElementById('page-' + id).classList.remove('hidden');
+        }
+
+        function showLoading(s) { 
+            document.getElementById('loader').classList.toggle('hidden', !s); 
+        }
+    </script>
+</body>
+</html>
