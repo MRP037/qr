@@ -24,15 +24,22 @@
          * 4. Gunakan URL dari deployment terbaru.
          * 5. PASTIKAN NAMA SHEET DI SPREADSHEET ADALAH: "Warga", "Dana_Masuk", dan "Dana_Keluar"
          */
-        const API_URL = "https://script.google.com/macros/s/AKfycbwrGUs89FtPJI9A74UEsFlUXBE3gjdC-k_pqAad6FKZbo1qqRPjYoqYjdmO_9NN93po/exec
-";
+        // GANTI URL DI BAWAH INI DENGAN URL DEPLOYMENT ANDA
+        const API_URL = "https://script.google.com/macros/s/AKfycbwhbfcdmrzTBYGMu-Bq5TaKrMz-vYtbhTQzkZICvUTLprJyUK9cD9Ajg607JufBbg-U/exec";
         let APP_PASS = "";
     </script>
 
     <!-- UI Login -->
     <div id="loginPage" class="page active flex items-center justify-center min-h-screen">
         <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200 text-center">
-            <h1 class="text-2xl font-bold mb-6 text-blue-700">Keuangan RT (Remote)</h1>
+            <h1 class="text-2xl font-bold mb-2 text-blue-700">Keuangan RT (Remote)</h1>
+            <p class="text-xs text-gray-500 mb-6">Aplikasi Kas RT Digital</p>
+            
+            <!-- Warning jika API belum diset -->
+            <div id="apiWarning" class="hidden mb-4 p-3 bg-red-100 text-red-700 text-xs rounded-lg border border-red-200">
+                <strong>Peringatan:</strong> URL API belum diatur atau masih menggunakan placeholder. Silakan edit file Index.html bagian API_URL.
+            </div>
+
             <input type="password" id="passInput" placeholder="Masukkan Password Aplikasi" class="w-full px-4 py-2 border rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none">
             <button onclick="handleLogin()" id="loginBtn" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition">Masuk</button>
             <p id="loginErr" class="text-red-500 mt-2 text-sm hidden"></p>
@@ -186,6 +193,13 @@
     </div>
 
     <script>
+        // Cek apakah URL masih placeholder saat halaman dimuat
+        window.onload = function() {
+            if (API_URL.includes("XXXXX")) {
+                document.getElementById('apiWarning').classList.remove('hidden');
+            }
+        };
+
         async function requestData(action, data = {}) {
             showLoading(true);
             try {
@@ -195,20 +209,27 @@
                     data: data 
                 };
 
+                // Controller untuk timeout (mencegah loading selamanya)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000); 
+
                 const response = await fetch(API_URL, {
                     method: "POST",
                     mode: "cors",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
                 });
 
-                if (!response.ok) throw new Error("Gagal terhubung ke server");
+                clearTimeout(timeoutId);
+
+                if (!response.ok) throw new Error("Server merespon dengan status: " + response.status);
 
                 const result = await response.json();
                 showLoading(false);
 
                 if (!result.success) {
-                    alert("Error: " + (result.message || "Terjadi kesalahan"));
+                    alert("Gagal: " + (result.message || "Terjadi kesalahan pada server. Cek Nama Sheet di Spreadsheet."));
                     return null;
                 }
 
@@ -216,7 +237,17 @@
             } catch (error) {
                 console.error("API Error:", error);
                 showLoading(false);
-                alert("Kesalahan Jaringan. Pastikan URL API sudah benar.");
+                
+                let errorMsg = "Kesalahan Jaringan: ";
+                if (error.name === 'AbortError') {
+                    errorMsg += "Waktu koneksi habis (Timeout). Server Apps Script mungkin sedang sibuk.";
+                } else if (API_URL.includes("XXXXX")) {
+                    errorMsg += "URL API belum dikonfigurasi. Silakan masukkan URL Web App Apps Script Anda.";
+                } else {
+                    errorMsg += "Gagal menghubungi server. Pastikan Web App dideploy sebagai 'Anyone' dan URL sudah benar.";
+                }
+                
+                alert(errorMsg);
                 return null;
             }
         }
@@ -274,7 +305,6 @@
                 alert(res.data || "Data berhasil disimpan!");
                 event.target.reset();
                 
-                // Refresh data warga dan dashboard
                 if (action === 'addWarga') {
                     await loadWarga();
                 } else {
