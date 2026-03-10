@@ -22,8 +22,9 @@
          * 2. Execute as: "Me".
          * 3. Who has access: "Anyone".
          * 4. Gunakan URL dari deployment terbaru.
+         * 5. PASTIKAN NAMA SHEET DI SPREADSHEET ADALAH: "Warga", "Dana_Masuk", dan "Dana_Keluar"
          */
-        const API_URL = "https://script.google.com/macros/s/AKfycbwQoLKCLrPmR9UiXIYLwUag4GxTz_RGQeT78uzX1h07gmSUYSHqjCyXq0fTOCi7jNgi/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbynFUZJjtTEe-aVya5NnhXZ9FJxX42eLd1HMSFDFN96szYp_QCwLi2Wc4NnVmiviIwP/exec";
         let APP_PASS = "";
     </script>
 
@@ -47,8 +48,10 @@
         <div class="max-w-6xl mx-auto p-4">
             <!-- Navigasi Menu -->
             <div class="flex space-x-2 mb-6 overflow-x-auto pb-2">
-                <button onclick="showPage('dashboard')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition">Dashboard</button>
-                <button onclick="showPage('warga')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition">Data Warga</button>
+                <button onclick="showPage('dashboard')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition min-w-[100px]">Dashboard</button>
+                <button onclick="showPage('warga')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition min-w-[100px]">Data Warga</button>
+                <button onclick="showPage('masuk')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition min-w-[100px]">Dana Masuk</button>
+                <button onclick="showPage('keluar')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition min-w-[100px]">Dana Keluar</button>
             </div>
             
             <!-- Dashboard Content -->
@@ -82,9 +85,51 @@
                             </tr>
                         </thead>
                         <tbody id="table-warga-body" class="divide-y divide-gray-100">
-                            <!-- Data akan dimuat di sini -->
+                            <!-- Data dimuat di sini -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Menu Dana Masuk -->
+            <div id="page-masuk" class="subpage hidden">
+                <h2 class="text-xl font-bold mb-4 text-green-700">Input Dana Masuk</h2>
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm max-w-md">
+                    <form id="formMasuk" onsubmit="handleFormSubmit(event, 'addDanaMasuk')">
+                        <div class="mb-4">
+                            <label class="block text-sm font-bold text-gray-600 mb-1">Pilih Warga</label>
+                            <select id="selectWarga" name="kodeWarga" class="w-full border p-2 rounded focus:ring-2 focus:ring-green-500 outline-none">
+                                <option value="-">--- Umum / Kas ---</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-bold text-gray-600 mb-1">Keterangan</label>
+                            <input type="text" name="keterangan" placeholder="Contoh: Iuran Bulanan" required class="w-full border p-2 rounded focus:ring-2 focus:ring-green-500 outline-none">
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-bold text-gray-600 mb-1">Jumlah (Rp)</label>
+                            <input type="number" name="jumlah" placeholder="0" required class="w-full border p-2 rounded focus:ring-2 focus:ring-green-500 outline-none">
+                        </div>
+                        <button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700 transition">Simpan Dana Masuk</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Menu Dana Keluar -->
+            <div id="page-keluar" class="subpage hidden">
+                <h2 class="text-xl font-bold mb-4 text-red-700">Input Dana Keluar</h2>
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm max-w-md">
+                    <form id="formKeluar" onsubmit="handleFormSubmit(event, 'addDanaKeluar')">
+                        <div class="mb-4">
+                            <label class="block text-sm font-bold text-gray-600 mb-1">Keterangan / Keperluan</label>
+                            <input type="text" name="keterangan" placeholder="Contoh: Perbaikan Lampu" required class="w-full border p-2 rounded focus:ring-2 focus:ring-red-500 outline-none">
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-bold text-gray-600 mb-1">Jumlah Pengeluaran (Rp)</label>
+                            <input type="number" name="jumlah" placeholder="0" required class="w-full border p-2 rounded focus:ring-2 focus:ring-red-500 outline-none">
+                        </div>
+                        <button type="submit" class="w-full bg-red-600 text-white py-2 rounded-lg font-bold hover:bg-red-700 transition">Simpan Dana Keluar</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -93,16 +138,12 @@
     <!-- Loading Overlay -->
     <div id="loader" class="fixed inset-0 bg-white bg-opacity-70 hidden flex flex-col items-center justify-center z-50">
         <div class="loader mb-2"></div>
-        <p class="text-blue-600 font-medium animate-pulse">Menghubungkan ke Server...</p>
+        <p class="text-blue-600 font-medium animate-pulse">Memproses...</p>
     </div>
 
     <script>
-        // Fungsi utama untuk request data ke GAS
         async function requestData(action, data = {}) {
             showLoading(true);
-            const loginErr = document.getElementById('loginErr');
-            loginErr.classList.add('hidden');
-
             try {
                 const payload = { 
                     action: action, 
@@ -110,15 +151,10 @@
                     data: data 
                 };
 
-                // Menggunakan fetch dengan URLSearchParams atau JSON String 
-                // Google Apps Script doPost menerima payload di e.postData.contents
                 const response = await fetch(API_URL, {
                     method: "POST",
-                    mode: "cors", // Mengaktifkan CORS secara eksplisit
-                    headers: {
-                        "Content-Type": "text/plain;charset=utf-8", 
-                        // Menggunakan text/plain seringkali menghindari pre-flight CORS yang ketat di GAS
-                    },
+                    mode: "cors",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify(payload)
                 });
 
@@ -128,8 +164,7 @@
                 showLoading(false);
 
                 if (!result.success) {
-                    loginErr.innerText = result.message || "Terjadi kesalahan";
-                    loginErr.classList.remove('hidden');
+                    alert("Error: " + (result.message || "Terjadi kesalahan"));
                     return null;
                 }
 
@@ -137,7 +172,7 @@
             } catch (error) {
                 console.error("API Error:", error);
                 showLoading(false);
-                alert("Kesalahan Jaringan: Pastikan URL API sudah benar dan akses dideploy untuk 'Anyone'.");
+                alert("Kesalahan Jaringan. Pastikan URL API sudah benar.");
                 return null;
             }
         }
@@ -151,9 +186,7 @@
                 return;
             }
 
-            // Mencoba mengambil ringkasan sebagai verifikasi login
             const res = await requestData('getSummary');
-            
             if (res && res.success) {
                 document.getElementById('loginPage').classList.remove('active');
                 document.getElementById('mainApp').classList.add('active');
@@ -166,23 +199,49 @@
             const res = await requestData('getWarga');
             if (res && res.success) {
                 const body = document.getElementById('table-warga-body');
+                const select = document.getElementById('selectWarga');
+                
+                body.innerHTML = '';
+                select.innerHTML = '<option value="-">--- Umum / Kas ---</option>';
+
                 if (res.data.length === 0) {
                     body.innerHTML = '<tr><td colspan="2" class="p-4 text-center text-gray-400 italic">Belum ada data warga</td></tr>';
-                    return;
+                } else {
+                    res.data.forEach(w => {
+                        body.innerHTML += `
+                            <tr class="hover:bg-blue-50 transition">
+                                <td class="p-4 text-sm text-gray-600 font-mono font-bold">${w.Kode || '-'}</td>
+                                <td class="p-4 text-sm text-gray-800 font-medium">${w.Nama_Warga || '-'}</td>
+                            </tr>
+                        `;
+                        select.innerHTML += `<option value="${w.Kode}">${w.Nama_Warga} (${w.Kode})</option>`;
+                    });
                 }
-                body.innerHTML = res.data.map(w => `
-                    <tr class="hover:bg-blue-50 transition">
-                        <td class="p-4 text-sm text-gray-600 font-mono font-bold">${w.Kode || '-'}</td>
-                        <td class="p-4 text-sm text-gray-800 font-medium">${w.Nama_Warga || '-'}</td>
-                    </tr>
-                `).join('');
+            }
+        }
+
+        async function handleFormSubmit(event, action) {
+            event.preventDefault();
+            const formData = Object.fromEntries(new FormData(event.target));
+            
+            const res = await requestData(action, formData);
+            if (res && res.success) {
+                alert("Data berhasil disimpan!");
+                event.target.reset();
+                
+                // Refresh data dashboard setelah input
+                const stats = await requestData('getSummary');
+                if (stats) updateUI(stats.data);
+                
+                showPage('dashboard');
             }
         }
 
         function updateUI(stats) {
-            document.getElementById('stat-masuk').innerText = stats.masuk.toLocaleString('id-ID');
-            document.getElementById('stat-keluar').innerText = stats.keluar.toLocaleString('id-ID');
-            document.getElementById('stat-saldo').innerText = stats.saldo.toLocaleString('id-ID');
+            if (!stats) return;
+            document.getElementById('stat-masuk').innerText = (stats.masuk || 0).toLocaleString('id-ID');
+            document.getElementById('stat-keluar').innerText = (stats.keluar || 0).toLocaleString('id-ID');
+            document.getElementById('stat-saldo').innerText = (stats.saldo || 0).toLocaleString('id-ID');
         }
 
         function showPage(id) {
