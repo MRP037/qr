@@ -24,7 +24,8 @@
          * 4. Gunakan URL dari deployment terbaru.
          * 5. PASTIKAN NAMA SHEET DI SPREADSHEET ADALAH: "Warga", "Dana_Masuk", dan "Dana_Keluar"
          */
-        const API_URL = "https://script.google.com/macros/s/AKfycbzMhHZdVeYtB3wJQUXaU9iSiuFgXLAKgkcgNXkBTMeyRq_uPejdsyZYGJkhVZGZcmXz/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbwrGUs89FtPJI9A74UEsFlUXBE3gjdC-k_pqAad6FKZbo1qqRPjYoqYjdmO_9NN93po/exec
+";
         let APP_PASS = "";
     </script>
 
@@ -50,6 +51,7 @@
             <div class="flex space-x-2 mb-6 overflow-x-auto pb-2">
                 <button onclick="showPage('dashboard')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition min-w-[100px]">Dashboard</button>
                 <button onclick="showPage('warga')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition min-w-[100px]">Data Warga</button>
+                <button onclick="showPage('add-warga')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition min-w-[100px] text-blue-600">+ Warga</button>
                 <button onclick="showPage('masuk')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition min-w-[100px]">Dana Masuk</button>
                 <button onclick="showPage('keluar')" class="bg-white border border-blue-200 px-6 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition min-w-[100px]">Dana Keluar</button>
             </div>
@@ -82,12 +84,54 @@
                             <tr class="bg-gray-50 border-b">
                                 <th class="p-4 text-sm font-bold text-gray-600 uppercase">Kode</th>
                                 <th class="p-4 text-sm font-bold text-gray-600 uppercase">Nama Warga</th>
+                                <th class="p-4 text-sm font-bold text-gray-600 uppercase">No Rumah</th>
                             </tr>
                         </thead>
                         <tbody id="table-warga-body" class="divide-y divide-gray-100">
                             <!-- Data dimuat di sini -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Input Warga Baru -->
+            <div id="page-add-warga" class="subpage hidden">
+                <h2 class="text-xl font-bold mb-4 text-blue-700">Tambah Warga Baru</h2>
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm max-w-md">
+                    <form id="formWarga" onsubmit="handleFormSubmit(event, 'addWarga')">
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">Kode Warga</label>
+                                <input type="text" name="Kode" placeholder="W001" required class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">Nama Warga</label>
+                                <input type="text" name="Nama_Warga" placeholder="Nama Lengkap" required class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">RT</label>
+                                <input type="text" name="RT" placeholder="001" required class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">No Rumah</label>
+                                <input type="text" name="No_Rumah" placeholder="A-10" required class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-bold text-gray-600 mb-1">Status</label>
+                            <select name="Status" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="Tetap">Tetap</option>
+                                <option value="Kontrak">Kontrak</option>
+                            </select>
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-bold text-gray-600 mb-1">Alamat</label>
+                            <textarea name="Alamat" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition">Simpan Data Warga</button>
+                    </form>
                 </div>
             </div>
 
@@ -205,13 +249,14 @@
                 select.innerHTML = '<option value="-">--- Umum / Kas ---</option>';
 
                 if (res.data.length === 0) {
-                    body.innerHTML = '<tr><td colspan="2" class="p-4 text-center text-gray-400 italic">Belum ada data warga</td></tr>';
+                    body.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-400 italic">Belum ada data warga</td></tr>';
                 } else {
                     res.data.forEach(w => {
                         body.innerHTML += `
                             <tr class="hover:bg-blue-50 transition">
                                 <td class="p-4 text-sm text-gray-600 font-mono font-bold">${w.Kode || '-'}</td>
                                 <td class="p-4 text-sm text-gray-800 font-medium">${w.Nama_Warga || '-'}</td>
+                                <td class="p-4 text-sm text-gray-500">${w.No_Rumah || '-'}</td>
                             </tr>
                         `;
                         select.innerHTML += `<option value="${w.Kode}">${w.Nama_Warga} (${w.Kode})</option>`;
@@ -226,12 +271,16 @@
             
             const res = await requestData(action, formData);
             if (res && res.success) {
-                alert("Data berhasil disimpan!");
+                alert(res.data || "Data berhasil disimpan!");
                 event.target.reset();
                 
-                // Refresh data dashboard setelah input
-                const stats = await requestData('getSummary');
-                if (stats) updateUI(stats.data);
+                // Refresh data warga dan dashboard
+                if (action === 'addWarga') {
+                    await loadWarga();
+                } else {
+                    const stats = await requestData('getSummary');
+                    if (stats) updateUI(stats.data);
+                }
                 
                 showPage('dashboard');
             }
